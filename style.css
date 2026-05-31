@@ -368,6 +368,8 @@ input[type="text"], input[type="number"], select {
 }
 .view-card .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
 .checks { display: flex; flex-direction: column; gap: 6px; }
+.checks > .stop-pick { border-bottom: 1px solid var(--bg-subtle); padding-bottom: 6px; }
+.checks > .stop-pick:last-child { border-bottom: none; }
 .checks label {
   display: flex;
   align-items: center;
@@ -376,6 +378,25 @@ input[type="text"], input[type="number"], select {
   padding: 6px 4px;
 }
 .checks input { width: auto; transform: scale(1.2); }
+
+/* Verkehrsmittel-Filter pro Haltestelle */
+.cat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 4px 6px 30px;   /* eingerückt unter die Haltestelle */
+}
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px !important;
+  padding: 4px 8px !important;
+  background: var(--bg-subtle);
+  border-radius: 14px;
+  color: var(--text-secondary);
+}
+.cat-chip input { transform: scale(1); }
 
 .empty-hint {
   text-align: center;

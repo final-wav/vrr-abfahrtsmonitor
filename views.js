@@ -41,6 +41,32 @@ export function parseDepTime(ev) {
   };
 }
 
+/* ─── Verkehrsmittel-Kategorien (für Filter pro Haltestelle) ── */
+export const CATEGORIES = [
+  { id: "sbahn",    label: "S-Bahn" },
+  { id: "ubahn",    label: "U-Bahn" },
+  { id: "tram",     label: "Tram" },
+  { id: "bus",      label: "Bus" },
+  { id: "regional", label: "Regional/Zug" },
+];
+
+/** Ordnet eine Abfahrt genau einer Filter-Kategorie zu. */
+export function categoryOf(ev) {
+  const name = (ev.transportation?.disassembledName || "").toUpperCase();
+  const cls = ev.transportation?.product?.class;
+  if (name.startsWith("NE") || name.startsWith("SEV")) return "bus"; // Nacht-/Ersatzbus
+  switch (cls) {
+    case 1:  return "sbahn";
+    case 2:
+    case 3:  return "ubahn";
+    case 4:  return "tram";
+    case 5:  return "bus";
+    case 13: return "regional";
+    case 0:  return "regional"; // Fernverkehr → Zug
+    default: return "regional";
+  }
+}
+
 /* ─── DOM-Helfer (textContent → XSS-sicher) ────────────────── */
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -104,7 +130,7 @@ function platformLabel(ev, platform) {
 }
 
 /* ─── Panel für eine Haltestelle ───────────────────────────── */
-function renderPanel(result, limit) {
+function renderPanel(result, limit, allowed) {
   const panel = el("div", "stop-panel");
 
   const header = el("div", "vrr-header");
@@ -117,9 +143,18 @@ function renderPanel(result, limit) {
     return panel;
   }
 
-  const events = result?.events || [];
+  let events = result?.events || [];
+  // Verkehrsmittel-Filter (allowed = erlaubte Kategorien; undefined = alle)
+  if (Array.isArray(allowed)) {
+    events = events.filter((ev) => allowed.includes(categoryOf(ev)));
+  }
+
   if (events.length === 0) {
-    panel.appendChild(panelMessage("Keine Abfahrten in den nächsten 60 Min."));
+    panel.appendChild(panelMessage(
+      Array.isArray(allowed)
+        ? "Keine passenden Abfahrten (Filter aktiv)."
+        : "Keine Abfahrten in den nächsten 60 Min."
+    ));
     return panel;
   }
 
@@ -160,7 +195,8 @@ export function renderView(view, results, container) {
     // focusmini: erstes Panel groß, restliche kompakt
     let limit = baseLimit;
     if (layout === "focusmini") limit = idx === 0 ? 7 : 4;
-    container.appendChild(renderPanel(result, limit));
+    const allowed = view.filters?.[stopId]; // undefined = alle anzeigen
+    container.appendChild(renderPanel(result, limit, allowed));
   });
 
   if (stops.length === 0) {

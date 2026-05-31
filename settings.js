@@ -4,7 +4,24 @@
 
 import { searchStops, NotConfiguredError } from "./api.js";
 import { isConfigured, getApiBase, setApiBase } from "./config.js";
+import { CATEGORIES } from "./views.js";
 import * as store from "./store.js";
+
+/* Filter-Helfer: view.filters[stopId] = erlaubte Kategorien (fehlt = alle) */
+function getStopCats(view, stopId) {
+  const f = view.filters && view.filters[stopId];
+  return Array.isArray(f) ? f : null;
+}
+function setStopCats(view, stopId, enabled) {
+  const allIds = CATEGORIES.map((c) => c.id);
+  if (!view.filters) view.filters = {};
+  if (enabled.length >= allIds.length) {
+    delete view.filters[stopId];
+    if (Object.keys(view.filters).length === 0) delete view.filters;
+  } else {
+    view.filters[stopId] = enabled;
+  }
+}
 
 const LAYOUTS = [
   { id: "single",    label: "Single — 1 Haltestelle groß",        count: 1 },
@@ -307,10 +324,13 @@ function viewCard(view, notify) {
     checks.replaceChildren();
     const def = LAYOUTS.find((l) => l.id === view.layout);
     stops.forEach((s) => {
+      const selected = view.stops.includes(s.stopId);
+      const wrap = el("div", "stop-pick");
+
       const lab = el("label");
       const cb = el("input");
       cb.type = "checkbox";
-      cb.checked = view.stops.includes(s.stopId);
+      cb.checked = selected;
       cb.addEventListener("change", () => {
         if (cb.checked) {
           if (view.stops.length >= def.count) {
@@ -324,11 +344,37 @@ function viewCard(view, notify) {
         }
         store.saveView(view);
         updateHint();
+        renderChecks(); // Filter-Zeile ein-/ausblenden
         notify();
       });
       lab.appendChild(cb);
       lab.appendChild(el("span", null, s.name));
-      checks.appendChild(lab);
+      wrap.appendChild(lab);
+
+      // Verkehrsmittel-Filter — nur wenn Haltestelle gewählt
+      if (selected) {
+        const current = getStopCats(view, s.stopId); // null = alle
+        const catRow = el("div", "cat-row");
+        CATEGORIES.forEach((c) => {
+          const chip = el("label", "cat-chip");
+          const ccb = el("input");
+          ccb.type = "checkbox";
+          ccb.checked = !current || current.includes(c.id);
+          ccb.addEventListener("change", () => {
+            const boxes = [...catRow.querySelectorAll("input")];
+            const enabled = CATEGORIES.map((x) => x.id).filter((_, i) => boxes[i].checked);
+            setStopCats(view, s.stopId, enabled);
+            store.saveView(view);
+            notify();
+          });
+          chip.appendChild(ccb);
+          chip.appendChild(el("span", null, c.label));
+          catRow.appendChild(chip);
+        });
+        wrap.appendChild(catRow);
+      }
+
+      checks.appendChild(wrap);
     });
   };
 
