@@ -1,0 +1,9 @@
+# Editor / OS
+.DS_Store
+Thumbs.db
+
+# Lokale Dev-/Tooling-Konfiguration
+.claude/
+
+# Node (nur falls mal verwendet)
+node_modules/
