@@ -14,6 +14,7 @@ export function getBadgeColor(ev) {
 
   switch (cls) {
     case 1:  return "#008238"; // S-Bahn
+    case 2:  return "#007cc6"; // U-Bahn / Stadtbahn (z.B. Dortmund U42)
     case 3:  return "#007cc6"; // U-Bahn
     case 4:  return "#148291"; // Straßenbahn
     case 5:  return "#ba5700"; // Bus
