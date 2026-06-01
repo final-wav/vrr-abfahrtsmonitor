@@ -3,7 +3,7 @@
 //  API-Requests (Cross-Origin zum Worker) werden NIE gecacht.
 // ─────────────────────────────────────────────────────────────
 
-const CACHE = "vrr-shell-v10";
+const CACHE = "vrr-shell-v11";
 const SHELL = [
   "./",
   "./index.html",
@@ -42,19 +42,17 @@ self.addEventListener("fetch", (e) => {
   // Nur eigene Origin (App-Shell) bedienen — API läuft cross-origin.
   if (url.origin !== self.location.origin) return;
 
-  // Cache-first für die Shell, Netz als Fallback (und Cache aktualisieren).
+  // Network-first: online immer die neueste Version, Cache nur als
+  // Offline-Fallback. So gibt es nie veraltete CSS/JS nach einem Update.
   e.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((resp) => {
-          if (resp.ok) {
-            const copy = resp.clone();
-            caches.open(CACHE).then((c) => c.put(request, copy));
-          }
-          return resp;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(request)
+      .then((resp) => {
+        if (resp.ok) {
+          const copy = resp.clone();
+          caches.open(CACHE).then((c) => c.put(request, copy));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(request))
   );
 });
