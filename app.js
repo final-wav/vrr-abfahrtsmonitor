@@ -26,6 +26,7 @@ const cache = new Map();
 
 /* ─── Init ─────────────────────────────────────────────────── */
 async function init() {
+  store.applyTheme();
   document.addEventListener("visibilitychange", onVisibility);
   setupSwipe();
 

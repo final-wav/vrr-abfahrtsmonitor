@@ -67,12 +67,41 @@ export function renderSettings(root, { onClose, onChange }) {
   const body = el("div", "settings-body");
   root.appendChild(body);
 
+  body.appendChild(buildThemeSection());
   body.appendChild(buildConnectionSection(() => renderSettings(root, { onClose, onChange })));
   body.appendChild(buildSearchSection(notify));
   body.appendChild(buildStopsSection(notify));
   body.appendChild(buildViewsSection(notify));
   body.appendChild(buildRefreshSection());
   body.appendChild(buildRotationSection());
+}
+
+/* ─── Abschnitt: Erscheinungsbild (Theme) ──────────────────── */
+function buildThemeSection() {
+  const sec = el("div", "settings-section");
+  sec.appendChild(el("h2", null, "Erscheinungsbild"));
+
+  const field = el("div", "field");
+  const sel = el("select");
+  const options = [
+    { v: "light",  t: "Hell (Standard)" },
+    { v: "dark",   t: "Dunkelgrau" },
+    { v: "amoled", t: "Schwarz (AMOLED)" },
+  ];
+  const current = store.getTheme();
+  options.forEach((o) => {
+    const opt = el("option", null, o.t);
+    opt.value = o.v;
+    if (o.v === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener("change", () => {
+    store.setTheme(sel.value);
+    store.applyTheme(sel.value); // sofort sichtbar
+  });
+  field.appendChild(sel);
+  sec.appendChild(field);
+  return sec;
 }
 
 /* ─── Abschnitt: Verbindung (Worker-URL) ───────────────────── */

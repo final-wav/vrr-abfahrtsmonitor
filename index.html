@@ -9,6 +9,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>VRR Abfahrtsmonitor</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Theme früh setzen, bevor CSS rendert (kein Aufblitzen)
+    try {
+      var t = JSON.parse(localStorage.getItem("vrr_theme"));
+      if (t && t !== "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>

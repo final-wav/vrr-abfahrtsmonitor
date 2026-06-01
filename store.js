@@ -8,7 +8,10 @@ const KEYS = {
   activeView: "vrr_activeView",
   rotation: "vrr_rotationInterval",
   refresh: "vrr_refreshInterval",
+  theme: "vrr_theme",
 };
+
+export const THEMES = ["light", "dark", "amoled"];
 
 const DEFAULT_REFRESH_SEC = 30;
 
@@ -99,4 +102,19 @@ export function getRefreshInterval() {
 }
 export function setRefreshInterval(seconds) {
   write(KEYS.refresh, Number(seconds) || DEFAULT_REFRESH_SEC);
+}
+
+/* ─── Theme ────────────────────────────────────────────────── */
+export function getTheme() {
+  const t = read(KEYS.theme, "light");
+  return THEMES.includes(t) ? t : "light";
+}
+export function setTheme(theme) {
+  write(KEYS.theme, THEMES.includes(theme) ? theme : "light");
+}
+/** Theme aufs <html>-Element anwenden (light = ohne Attribut). */
+export function applyTheme(theme = getTheme()) {
+  const el = document.documentElement;
+  if (theme === "light") el.removeAttribute("data-theme");
+  else el.setAttribute("data-theme", theme);
 }
