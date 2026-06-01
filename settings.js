@@ -2,7 +2,7 @@
 //  settings.js — Settings-UI (Haltestellen + Views konfigurieren)
 // ─────────────────────────────────────────────────────────────
 
-import { searchStops, NotConfiguredError } from "./api.js";
+import { searchStops, nearbyStops, NotConfiguredError } from "./api.js";
 import { isConfigured, getApiBase, setApiBase } from "./config.js";
 import { CATEGORIES } from "./views.js";
 import * as store from "./store.js";
@@ -24,11 +24,29 @@ function setStopCats(view, stopId, enabled) {
 }
 
 const LAYOUTS = [
-  { id: "single",    label: "Single — 1 Haltestelle groß",        count: 1 },
-  { id: "split2",    label: "Split — 2 nebeneinander",            count: 2 },
-  { id: "triple",    label: "Triple — 3 nebeneinander",           count: 3 },
-  { id: "focusmini", label: "Focus — 1 groß oben, 2 klein unten", count: 3 },
+  { id: "single",     label: "Single — 1 Haltestelle groß",         count: 1 },
+  { id: "split2",     label: "Split — 2 nebeneinander",             count: 2 },
+  { id: "triple",     label: "Triple — 3 nebeneinander",            count: 3 },
+  { id: "focusmini",  label: "Focus — 1 groß oben, 2 klein unten",  count: 3 },
+  { id: "steigsplit", label: "Steig-Split — 1 Haltestelle, Steige links/rechts", count: 1 },
 ];
+
+/* Generischer Setter für Pro-Haltestelle-Maps am View (leer = löschen) */
+function setViewMapEntry(view, key, id, value) {
+  const empty = value == null || value === "" || (Array.isArray(value) && value.length === 0);
+  if (empty) {
+    if (view[key]) {
+      delete view[key][id];
+      if (Object.keys(view[key]).length === 0) delete view[key];
+    }
+  } else {
+    if (!view[key]) view[key] = {};
+    view[key][id] = value;
+  }
+}
+function parseTokens(str) {
+  return (str || "").split(",").map((s) => s.trim()).filter(Boolean);
+}
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -79,8 +97,9 @@ export function renderSettings(root, { onClose, onChange }) {
 /* ─── Abschnitt: Erscheinungsbild (Theme) ──────────────────── */
 function buildThemeSection() {
   const sec = el("div", "settings-section");
-  sec.appendChild(el("h2", null, "Erscheinungsbild"));
+  sec.appendChild(el("h2", null, "Anzeige"));
 
+  sec.appendChild(el("div", "item-sub", "Erscheinungsbild:"));
   const field = el("div", "field");
   const sel = el("select");
   const options = [
@@ -101,6 +120,39 @@ function buildThemeSection() {
   });
   field.appendChild(sel);
   sec.appendChild(field);
+
+  // Zeitformat
+  sec.appendChild(el("div", "item-sub", "Zeitanzeige der Abfahrten:"));
+  const tf = el("div", "field");
+  const tsel = el("select");
+  [
+    { v: "clock", t: "Uhrzeit (HH:MM)" },
+    { v: "min",   t: "in X min" },
+    { v: "both",  t: "Beides" },
+  ].forEach((o) => {
+    const opt = el("option", null, o.t);
+    opt.value = o.v;
+    if (o.v === store.getTimeFormat()) opt.selected = true;
+    tsel.appendChild(opt);
+  });
+  tsel.addEventListener("change", () => { store.setTimeFormat(tsel.value); toast("Zeitformat gespeichert"); });
+  tf.appendChild(tsel);
+  sec.appendChild(tf);
+
+  // Anzahl Abfahrten
+  sec.appendChild(el("div", "item-sub", "Abfahrten pro Haltestelle laden:"));
+  const cf = el("div", "field");
+  const csel = el("select");
+  [8, 10, 12, 15, 20, 30, 40].forEach((n) => {
+    const opt = el("option", null, String(n));
+    opt.value = n;
+    if (n === store.getLoadCount()) opt.selected = true;
+    csel.appendChild(opt);
+  });
+  csel.addEventListener("change", () => { store.setLoadCount(csel.value); toast("Anzahl gespeichert"); });
+  cf.appendChild(csel);
+  sec.appendChild(cf);
+
   return sec;
 }
 
@@ -179,6 +231,9 @@ function buildSearchSection(notify) {
   input.type = "text";
   input.placeholder = "z.B. Gelsenkirchen Hbf";
   field.appendChild(input);
+  const gpsBtn = el("button", "btn btn-ghost", "📍");
+  gpsBtn.title = "Haltestellen in der Nähe";
+  field.appendChild(gpsBtn);
   sec.appendChild(field);
 
   const status = el("div", "search-status");
@@ -188,6 +243,30 @@ function buildSearchSection(notify) {
 
   let debounce = null;
   let reqToken = 0;
+
+  gpsBtn.addEventListener("click", () => {
+    if (!navigator.geolocation) { status.textContent = "GPS nicht verfügbar."; return; }
+    status.textContent = "Standort wird ermittelt …";
+    results.replaceChildren();
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const token = ++reqToken;
+        status.textContent = "Suche Haltestellen in der Nähe …";
+        try {
+          const found = await nearbyStops(pos.coords.latitude, pos.coords.longitude);
+          if (token !== reqToken) return;
+          results.replaceChildren();
+          if (found.length === 0) { status.textContent = "Keine Haltestellen in der Nähe."; return; }
+          status.textContent = found.length + " in der Nähe";
+          found.slice(0, 15).forEach((s) => results.appendChild(resultRow(s, notify)));
+        } catch (err) {
+          if (token === reqToken) status.textContent = "Umkreissuche fehlgeschlagen.";
+        }
+      },
+      () => { status.textContent = "Standort-Zugriff verweigert."; },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+    );
+  });
 
   input.addEventListener("input", () => {
     clearTimeout(debounce);
@@ -220,7 +299,8 @@ function buildSearchSection(notify) {
     const li = el("li");
     const grow = el("div", "grow");
     grow.appendChild(el("div", "item-title", stop.name));
-    grow.appendChild(el("div", "item-sub", "ID " + stop.stopId));
+    const sub = stop.dist != null ? `${Math.round(stop.dist)} m · ID ${stop.stopId}` : "ID " + stop.stopId;
+    grow.appendChild(el("div", "item-sub", sub));
     li.appendChild(grow);
 
     const already = store.getStops().some((s) => s.stopId === stop.stopId);
@@ -401,6 +481,100 @@ function viewCard(view, notify) {
           catRow.appendChild(chip);
         });
         wrap.appendChild(catRow);
+
+        // Erweiterte Optionen pro Haltestelle
+        const opts = el("div", "stop-opts");
+
+        // Nur bestimmte Linien
+        const lineRow = el("label", "opt-row");
+        lineRow.appendChild(el("span", "opt-label", "Nur Linien"));
+        const lineInp = el("input");
+        lineInp.type = "text";
+        lineInp.placeholder = "alle (z.B. U42, 420)";
+        lineInp.value = (view.lines?.[s.stopId] || []).join(", ");
+        lineInp.addEventListener("change", () => {
+          setViewMapEntry(view, "lines", s.stopId, parseTokens(lineInp.value));
+          store.saveView(view); notify();
+        });
+        lineRow.appendChild(lineInp);
+        opts.appendChild(lineRow);
+
+        // Richtung enthält
+        const dirRow = el("label", "opt-row");
+        dirRow.appendChild(el("span", "opt-label", "Richtung"));
+        const dirInp = el("input");
+        dirInp.type = "text";
+        dirInp.placeholder = "alle (z.B. Buer)";
+        dirInp.value = view.dir?.[s.stopId] || "";
+        dirInp.addEventListener("change", () => {
+          setViewMapEntry(view, "dir", s.stopId, dirInp.value.trim());
+          store.saveView(view); notify();
+        });
+        dirRow.appendChild(dirInp);
+        opts.appendChild(dirRow);
+
+        // Sortierung (nicht im Steig-Split, da dort Steig die Spalte bestimmt)
+        if (view.layout !== "steigsplit") {
+          const sortRow = el("label", "opt-row");
+          sortRow.appendChild(el("span", "opt-label", "Sortierung"));
+          const sortSel = el("select");
+          [{ v: "time", t: "nach Zeit" }, { v: "platform", t: "nach Steig, dann Zeit" }].forEach((o) => {
+            const opt = el("option", null, o.t);
+            opt.value = o.v;
+            if ((view.sort?.[s.stopId] || "time") === o.v) opt.selected = true;
+            sortSel.appendChild(opt);
+          });
+          sortSel.addEventListener("change", () => {
+            setViewMapEntry(view, "sort", s.stopId, sortSel.value === "platform" ? "platform" : "");
+            store.saveView(view); notify();
+          });
+          sortRow.appendChild(sortSel);
+          opts.appendChild(sortRow);
+        }
+
+        // Steig-Split: Verteilung links/rechts
+        if (view.layout === "steigsplit") {
+          const split = view.split?.[s.stopId] || { mode: "auto", left: [], right: [] };
+          const modeRow = el("label", "opt-row");
+          modeRow.appendChild(el("span", "opt-label", "Steige"));
+          const modeSel = el("select");
+          [{ v: "auto", t: "automatisch aufteilen" }, { v: "manual", t: "manuell zuordnen" }].forEach((o) => {
+            const opt = el("option", null, o.t);
+            opt.value = o.v;
+            if (split.mode === o.v) opt.selected = true;
+            modeSel.appendChild(opt);
+          });
+          modeSel.addEventListener("change", () => {
+            const next = { ...split, mode: modeSel.value };
+            setViewMapEntry(view, "split", s.stopId, next.mode === "auto" ? "" : next);
+            store.saveView(view); renderChecks(); notify();
+          });
+          modeRow.appendChild(modeSel);
+          opts.appendChild(modeRow);
+
+          if (split.mode === "manual") {
+            const mk = (side, label) => {
+              const row = el("label", "opt-row");
+              row.appendChild(el("span", "opt-label", label));
+              const inp = el("input");
+              inp.type = "text";
+              inp.placeholder = "Steige, z.B. 1, 2";
+              inp.value = (split[side] || []).join(", ");
+              inp.addEventListener("change", () => {
+                const cur = view.split?.[s.stopId] || { mode: "manual", left: [], right: [] };
+                cur[side] = parseTokens(inp.value);
+                setViewMapEntry(view, "split", s.stopId, cur);
+                store.saveView(view); notify();
+              });
+              row.appendChild(inp);
+              return row;
+            };
+            opts.appendChild(mk("left", "Links"));
+            opts.appendChild(mk("right", "Rechts"));
+          }
+        }
+
+        wrap.appendChild(opts);
       }
 
       checks.appendChild(wrap);

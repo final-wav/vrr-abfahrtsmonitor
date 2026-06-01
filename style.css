@@ -139,6 +139,7 @@ html, body {
   grid-template-rows: 65fr 35fr;
 }
 .display-grid.layout-focusmini .stop-panel:nth-child(1) { grid-column: 1 / 3; }
+.display-grid.layout-steigsplit { grid-template-columns: 1fr 1fr; }
 
 /* ─── Haltestellen-Panel ───────────────────────────────────── */
 .stop-panel {
@@ -213,6 +214,7 @@ html, body {
   text-decoration: line-through;
 }
 .dep-time .new { display: block; color: var(--color-delay); }
+.dep-time .mins { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); }
 
 .dep-main { min-width: 0; }
 .dep-line {
@@ -250,8 +252,8 @@ html, body {
 .dep-info {
   flex: 0 0 auto;
   align-self: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--badge-ubahn);
   color: #fff;
@@ -259,8 +261,34 @@ html, body {
   font-weight: 700;
   font-style: italic;
   text-align: center;
-  line-height: 18px;
+  line-height: 20px;
+  cursor: pointer;
 }
+
+/* Info-Overlay (Störungen/Hinweise) */
+.info-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.info-box {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 18px;
+}
+.info-box h3 { margin: 0 0 10px; font-size: 17px; }
+.info-text { white-space: pre-wrap; font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
 
 /* Dichte Layouts: kompaktere Zeilen */
 .layout-triple .dep-row,
@@ -438,6 +466,11 @@ input[type="text"], input[type="number"], select {
   color: var(--text-secondary);
 }
 .cat-chip input { transform: scale(1); }
+
+.stop-opts { padding: 2px 4px 8px 30px; display: flex; flex-direction: column; gap: 6px; }
+.opt-row { display: flex !important; align-items: center; gap: 8px; padding: 0 !important; }
+.opt-label { flex: 0 0 78px; font-size: 13px; color: var(--text-secondary); }
+.opt-row input, .opt-row select { font-size: 14px; padding: 7px 9px; }
 
 .empty-hint {
   text-align: center;

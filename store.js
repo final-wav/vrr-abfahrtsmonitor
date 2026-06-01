@@ -9,11 +9,15 @@ const KEYS = {
   rotation: "vrr_rotationInterval",
   refresh: "vrr_refreshInterval",
   theme: "vrr_theme",
+  timeFormat: "vrr_timeFormat",
+  loadCount: "vrr_loadCount",
 };
 
 export const THEMES = ["light", "dark", "amoled"];
+export const TIME_FORMATS = ["clock", "min", "both"];
 
 const DEFAULT_REFRESH_SEC = 30;
+const DEFAULT_LOAD_COUNT = 15;
 
 function read(key, fallback) {
   try {
@@ -117,4 +121,23 @@ export function applyTheme(theme = getTheme()) {
   const el = document.documentElement;
   if (theme === "light") el.removeAttribute("data-theme");
   else el.setAttribute("data-theme", theme);
+}
+
+/* ─── Zeitformat (clock | min | both) ──────────────────────── */
+export function getTimeFormat() {
+  const t = read(KEYS.timeFormat, "clock");
+  return TIME_FORMATS.includes(t) ? t : "clock";
+}
+export function setTimeFormat(fmt) {
+  write(KEYS.timeFormat, TIME_FORMATS.includes(fmt) ? fmt : "clock");
+}
+
+/* ─── Anzahl zu ladender Abfahrten pro Haltestelle ─────────── */
+export function getLoadCount() {
+  const n = Number(read(KEYS.loadCount, DEFAULT_LOAD_COUNT));
+  return n >= 5 && n <= 40 ? n : DEFAULT_LOAD_COUNT;
+}
+export function setLoadCount(n) {
+  const v = Math.max(5, Math.min(40, Number(n) || DEFAULT_LOAD_COUNT));
+  write(KEYS.loadCount, v);
 }

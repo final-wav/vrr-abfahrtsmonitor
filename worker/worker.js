@@ -13,11 +13,9 @@
 
 const VRR_BASE = "https://openservice-test.vrr.de/openservice/";
 
-// Nur diese EFA-Endpunkte erlauben (kein offener Proxy).
-const ALLOWED_ENDPOINTS = new Set([
-  "XML_STOPFINDER_REQUEST",
-  "XML_DM_REQUEST",
-]);
+// Nur EFA-Endpunkte im Muster XML_*_REQUEST erlauben (kein offener Proxy).
+// Deckt STOPFINDER, DM, COORD, ADDINFO, SERVINGLINES … ab.
+const ALLOWED_ENDPOINT = /^XML_[A-Z0-9_]+_REQUEST$/;
 
 function corsHeaders() {
   return {
@@ -41,7 +39,7 @@ export default {
     const url = new URL(request.url);
     const endpoint = url.pathname.replace(/^\/+/, "");
 
-    if (!ALLOWED_ENDPOINTS.has(endpoint)) {
+    if (!ALLOWED_ENDPOINT.test(endpoint)) {
       return new Response(
         JSON.stringify({ error: "endpoint not allowed", endpoint }),
         { status: 404, headers: { ...corsHeaders(), "Content-Type": "application/json" } }

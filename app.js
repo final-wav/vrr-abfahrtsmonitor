@@ -152,7 +152,8 @@ async function refresh() {
   if (!view) return;
 
   const stopIds = [...new Set(view.stops)];
-  const settled = await Promise.allSettled(stopIds.map((id) => fetchDepartures(id)));
+  const count = store.getLoadCount();
+  const settled = await Promise.allSettled(stopIds.map((id) => fetchDepartures(id, count)));
 
   const now = new Date();
   const stamp = now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });

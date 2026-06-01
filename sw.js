@@ -3,7 +3,7 @@
 //  API-Requests (Cross-Origin zum Worker) werden NIE gecacht.
 // ─────────────────────────────────────────────────────────────
 
-const CACHE = "vrr-shell-v6";
+const CACHE = "vrr-shell-v9";
 const SHELL = [
   "./",
   "./index.html",
@@ -19,7 +19,10 @@ const SHELL = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      // cache:"reload" → frische Dateien vom Netz, nie aus dem HTTP-Cache
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
   );
 });
 

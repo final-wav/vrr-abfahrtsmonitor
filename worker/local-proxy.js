@@ -3,7 +3,7 @@
 const http = require("http");
 const https = require("https");
 const VRR = "https://openservice-test.vrr.de/openservice/";
-const ALLOWED = new Set(["XML_STOPFINDER_REQUEST", "XML_DM_REQUEST"]);
+const ALLOWED = /^XML_[A-Z0-9_]+_REQUEST$/;
 
 http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -13,7 +13,7 @@ http.createServer((req, res) => {
 
   const u = new URL(req.url, "http://x");
   const ep = u.pathname.replace(/^\/+/, "");
-  if (!ALLOWED.has(ep)) { res.statusCode = 404; res.end('{"error":"not allowed"}'); return; }
+  if (!ALLOWED.test(ep)) { res.statusCode = 404; res.end('{"error":"not allowed"}'); return; }
 
   https.get(VRR + ep + u.search, { headers: { Accept: "application/json" } }, (r) => {
     let d = "";

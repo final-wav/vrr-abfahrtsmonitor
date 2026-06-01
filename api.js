@@ -65,11 +65,12 @@ export async function searchStops(query) {
  * Abfahrten einer Haltestelle laden.
  * @returns {Promise<{stopId, stopName, events: Array}>}
  */
-export async function fetchDepartures(stopId) {
+export async function fetchDepartures(stopId, limit = 15) {
   const data = await efaFetch("XML_DM_REQUEST", {
     type_dm: "stopID",
     name_dm: stopId,
     mode: "direct",
+    limit: String(limit),
   });
 
   return {
@@ -77,6 +78,30 @@ export async function fetchDepartures(stopId) {
     stopName: data.locations?.[0]?.name ?? "",
     events: processDepartures(data.stopEvents || []),
   };
+}
+
+/**
+ * Haltestellen im Umkreis einer Koordinate (GPS).
+ * @returns {Promise<Array<{stopId, name, dist}>>}
+ */
+export async function nearbyStops(lat, lon, radius = 1200) {
+  const data = await efaFetch("XML_COORD_REQUEST", {
+    coordOutputFormat: "WGS84[DD.DDDDD]",
+    coord: `${lon}:${lat}:WGS84[DD.DDDDD]`,
+    type_1: "STOP",
+    radius_1: String(radius),
+    inclFilter: "1",
+    max: "25",
+  });
+
+  return (data.locations || [])
+    .map((loc) => ({
+      stopId: loc.properties?.stopId,
+      name: loc.name,
+      dist: Number(loc.properties?.distance) || null,
+    }))
+    .filter((s) => s.stopId)
+    .sort((a, b) => (a.dist ?? 1e9) - (b.dist ?? 1e9));
 }
 
 /**
