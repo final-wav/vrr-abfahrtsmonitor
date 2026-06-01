@@ -57,7 +57,23 @@ export function getStopName(stopId) {
 
 /* ─── Views ────────────────────────────────────────────────── */
 export function getViews() {
-  return read(KEYS.views, []);
+  const views = read(KEYS.views, []);
+  // Migration: altes "steigsplit"-Layout → normales single + Steig-Split pro Halt.
+  let changed = false;
+  views.forEach((v) => {
+    if (v.layout === "steigsplit") {
+      v.layout = "single";
+      const id = v.stops?.[0];
+      if (id) {
+        v.split = v.split || {};
+        if (!v.split[id]) v.split[id] = { mode: "auto", left: [], right: [], orient: v.orient || "cols" };
+      }
+      delete v.orient;
+      changed = true;
+    }
+  });
+  if (changed) write(KEYS.views, views);
+  return views;
 }
 export function saveView(view) {
   const views = getViews();

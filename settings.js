@@ -28,7 +28,6 @@ const LAYOUTS = [
   { id: "split2",     label: "Split — 2 nebeneinander",             count: 2 },
   { id: "triple",     label: "Triple — 3 nebeneinander",            count: 3 },
   { id: "focusmini",  label: "Focus — 1 groß oben, 2 klein unten",  count: 3 },
-  { id: "steigsplit", label: "Steig-Split — 1 Haltestelle, Steige links/rechts", count: 1 },
 ];
 
 /* Generischer Setter für Pro-Haltestelle-Maps am View (leer = löschen) */
@@ -541,63 +540,56 @@ function viewCard(view, notify) {
         dirRow.appendChild(dirInp);
         opts.appendChild(dirRow);
 
-        // Sortierung (nicht im Steig-Split, da dort Steig die Spalte bestimmt)
-        if (view.layout !== "steigsplit") {
-          const sortRow = el("label", "opt-row");
-          sortRow.appendChild(el("span", "opt-label", "Sortierung"));
-          const sortSel = el("select");
-          [{ v: "time", t: "nach Zeit" }, { v: "platform", t: "nach Steig, dann Zeit" }].forEach((o) => {
-            const opt = el("option", null, o.t);
-            opt.value = o.v;
-            if ((view.sort?.[s.stopId] || "time") === o.v) opt.selected = true;
-            sortSel.appendChild(opt);
-          });
-          sortSel.addEventListener("change", () => {
-            setViewMapEntry(view, "sort", s.stopId, sortSel.value === "platform" ? "platform" : "");
-            store.saveView(view); notify();
-          });
-          sortRow.appendChild(sortSel);
-          opts.appendChild(sortRow);
-        }
+        const split = view.split?.[s.stopId]; // undefined = aus
 
-        // Steig-Split: Ausrichtung + Verteilung
-        if (view.layout === "steigsplit") {
-          // Ausrichtung der beiden Spalten
+        // Nach Steig aufteilen (funktioniert in jedem Layout)
+        const splitRow = el("label", "opt-row");
+        splitRow.appendChild(el("span", "opt-label", "Steig-Split"));
+        const splitSel = el("select");
+        [{ v: "off", t: "aus" }, { v: "auto", t: "automatisch" }, { v: "manual", t: "manuell" }].forEach((o) => {
+          const opt = el("option", null, o.t);
+          opt.value = o.v;
+          const cur = !split ? "off" : (split.mode === "manual" ? "manual" : "auto");
+          if (cur === o.v) opt.selected = true;
+          splitSel.appendChild(opt);
+        });
+        splitSel.addEventListener("change", () => {
+          if (splitSel.value === "off") {
+            setViewMapEntry(view, "split", s.stopId, "");
+          } else {
+            const prev = view.split?.[s.stopId] || {};
+            setViewMapEntry(view, "split", s.stopId, {
+              mode: splitSel.value === "manual" ? "manual" : "auto",
+              left: prev.left || [], right: prev.right || [],
+              orient: prev.orient || "cols",
+            });
+          }
+          store.saveView(view); renderChecks(); notify();
+        });
+        splitRow.appendChild(splitSel);
+        opts.appendChild(splitRow);
+
+        if (split) {
+          // Ausrichtung der beiden Steig-Spalten
           const orientRow = el("label", "opt-row");
           orientRow.appendChild(el("span", "opt-label", "Ausrichtung"));
           const orientSel = el("select");
           [{ v: "cols", t: "nebeneinander" }, { v: "rows", t: "übereinander" }].forEach((o) => {
             const opt = el("option", null, o.t);
             opt.value = o.v;
-            if ((view.orient || "cols") === o.v) opt.selected = true;
+            if ((split.orient || "cols") === o.v) opt.selected = true;
             orientSel.appendChild(opt);
           });
           orientSel.addEventListener("change", () => {
-            view.orient = orientSel.value === "rows" ? "rows" : "cols";
-            if (view.orient === "cols") delete view.orient;
+            const cur = view.split?.[s.stopId] || { mode: "auto" };
+            cur.orient = orientSel.value === "rows" ? "rows" : "cols";
+            setViewMapEntry(view, "split", s.stopId, cur);
             store.saveView(view); notify();
           });
           orientRow.appendChild(orientSel);
           opts.appendChild(orientRow);
 
-          const split = view.split?.[s.stopId] || { mode: "auto", left: [], right: [] };
-          const modeRow = el("label", "opt-row");
-          modeRow.appendChild(el("span", "opt-label", "Steige"));
-          const modeSel = el("select");
-          [{ v: "auto", t: "automatisch aufteilen" }, { v: "manual", t: "manuell zuordnen" }].forEach((o) => {
-            const opt = el("option", null, o.t);
-            opt.value = o.v;
-            if (split.mode === o.v) opt.selected = true;
-            modeSel.appendChild(opt);
-          });
-          modeSel.addEventListener("change", () => {
-            const next = { ...split, mode: modeSel.value };
-            setViewMapEntry(view, "split", s.stopId, next.mode === "auto" ? "" : next);
-            store.saveView(view); renderChecks(); notify();
-          });
-          modeRow.appendChild(modeSel);
-          opts.appendChild(modeRow);
-
+          // Manuelle Zuordnung der Steige
           if (split.mode === "manual") {
             const mk = (side, label) => {
               const row = el("label", "opt-row");
@@ -618,6 +610,23 @@ function viewCard(view, notify) {
             opts.appendChild(mk("left", "Links"));
             opts.appendChild(mk("right", "Rechts"));
           }
+        } else {
+          // Sortierung nur sinnvoll wenn NICHT nach Steig gesplittet
+          const sortRow = el("label", "opt-row");
+          sortRow.appendChild(el("span", "opt-label", "Sortierung"));
+          const sortSel = el("select");
+          [{ v: "time", t: "nach Zeit" }, { v: "platform", t: "nach Steig, dann Zeit" }].forEach((o) => {
+            const opt = el("option", null, o.t);
+            opt.value = o.v;
+            if ((view.sort?.[s.stopId] || "time") === o.v) opt.selected = true;
+            sortSel.appendChild(opt);
+          });
+          sortSel.addEventListener("change", () => {
+            setViewMapEntry(view, "sort", s.stopId, sortSel.value === "platform" ? "platform" : "");
+            store.saveView(view); notify();
+          });
+          sortRow.appendChild(sortSel);
+          opts.appendChild(sortRow);
         }
 
         wrap.appendChild(opts);

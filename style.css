@@ -139,11 +139,40 @@ html, body {
   grid-template-rows: 65fr 35fr;
 }
 .display-grid.layout-focusmini .stop-panel:nth-child(1) { grid-column: 1 / 3; }
-.display-grid.layout-steigsplit { grid-template-columns: 1fr 1fr; gap: 3px; }
-.display-grid.layout-steigsplit.split-rows {
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr 1fr;
+/* Haltestelle nach Steig aufgeteilt (innerhalb eines Layout-Slots) */
+.split-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  gap: 2px;
+  background: var(--border-card); /* feine Trennlinie zwischen den Steig-Spalten */
 }
+.split-body.split-cols { grid-template-columns: 1fr 1fr; }
+.split-body.split-rows { grid-template-rows: 1fr 1fr; }
+.split-col {
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.split-subhead {
+  flex: 0 0 auto;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border-card);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* In Steig-Spalten kompaktere Zeilen */
+.split-col .dep-row { padding: 8px 12px; gap: 7px; }
+.split-col .dep-time { font-size: 16px; }
+.split-col .direction { font-size: 14px; }
 
 /* ─── Haltestellen-Panel ───────────────────────────────────── */
 .stop-panel {

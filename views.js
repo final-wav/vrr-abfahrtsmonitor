@@ -194,6 +194,7 @@ function stopCfg(view, stopId) {
     lines: view.lines?.[stopId],
     dir: view.dir?.[stopId],
     sort: view.sort?.[stopId],
+    split: view.split?.[stopId], // {mode, left, right, orient} oder undefined
   };
 }
 function hasActiveFilter(cfg) {
@@ -245,6 +246,7 @@ function buildPanel({ title, subline, error, events, limit, filtered }) {
 }
 
 function renderPanel(result, limit, cfg) {
+  if (cfg && cfg.split) return renderSplitPanel(result, limit, cfg);
   const events = applyStopFilters(result?.events || [], cfg);
   return buildPanel({
     title: result?.stopName || result?.fallbackName || "—",
@@ -270,20 +272,9 @@ function groupLabel(events) {
   return labels.join(", ");
 }
 
-/* ─── Steig-Split: eine Haltestelle in 2 Spalten ───────────── */
-function renderSteigSplit(view, results, container) {
-  const stopId = view.stops[0];
-  const result = results[0];
-  const name = result?.stopName || result?.fallbackName || "—";
-  const updated = result?.updatedLabel || "";
-
-  if (!stopId) { container.appendChild(panelMessage("Dieser View hat keine Haltestelle.")); return; }
-
-  const base = applyStopFilters(result?.events || [], stopCfg(view, stopId));
-  const split = view.split?.[stopId];
-  let leftEv, rightEv;
-
-  if (split && split.mode === "manual") {
+/* ─── Haltestelle nach Steig in 2 Spalten/Reihen aufteilen ─── */
+function splitGroups(events, split) {
+  if (split.mode === "manual") {
     const match = (ev, tokens) => {
       const raw = platformName(ev).toLowerCase();
       const lab = platformLabel(ev, platformName(ev)).toLowerCase();
@@ -292,24 +283,52 @@ function renderSteigSplit(view, results, container) {
         return t && (raw === t || raw.includes(t) || lab.includes(t));
       });
     };
-    leftEv = base.filter((ev) => match(ev, split.left));
-    rightEv = base.filter((ev) => match(ev, split.right));
-  } else {
-    // Automatisch: Steige sortieren, abwechselnd links/rechts (niedrigster links)
-    const plats = [...new Set(base.map(platformName))].sort(platCmp);
-    const leftSet = new Set(plats.filter((_, i) => i % 2 === 0));
-    leftEv = base.filter((ev) => leftSet.has(platformName(ev)));
-    rightEv = base.filter((ev) => !leftSet.has(platformName(ev)));
+    return [events.filter((ev) => match(ev, split.left)),
+            events.filter((ev) => match(ev, split.right))];
+  }
+  // Automatisch: Steige sortieren, abwechselnd (niedrigster links/oben)
+  const plats = [...new Set(events.map(platformName))].sort(platCmp);
+  const leftSet = new Set(plats.filter((_, i) => i % 2 === 0));
+  return [events.filter((ev) => leftSet.has(platformName(ev))),
+          events.filter((ev) => !leftSet.has(platformName(ev)))];
+}
+
+function splitColumn(events, fallbackLabel, limit) {
+  const col = el("div", "split-col");
+  col.appendChild(el("div", "split-subhead", groupLabel(events) || fallbackLabel));
+  if (events.length === 0) {
+    col.appendChild(panelMessage("—"));
+    return col;
+  }
+  const list = el("div", "dep-list");
+  events.slice(0, limit).forEach((ev) => list.appendChild(renderDepRow(ev)));
+  col.appendChild(list);
+  return col;
+}
+
+/* Panel einer Haltestelle, die nach Steig aufgeteilt ist. */
+function renderSplitPanel(result, limit, cfg) {
+  const panel = el("div", "stop-panel");
+  const header = el("div", "vrr-header");
+  header.appendChild(el("h2", "stop-name", result?.stopName || result?.fallbackName || "—"));
+  header.appendChild(el("div", "last-update", result?.updatedLabel || ""));
+  panel.appendChild(header);
+
+  if (result?.error) {
+    panel.appendChild(panelMessage("⚠️ " + result.error));
+    return panel;
   }
 
-  const limit = 14;
-  const col = (events, fallback) => buildPanel({
-    title: groupLabel(events) || fallback,                 // Steig groß als Überschrift
-    subline: [name, updated].filter(Boolean).join(" · "),  // Haltestelle klein darunter
-    error: result?.error, events, limit, filtered: true,
-  });
-  container.appendChild(col(leftEv, "Links"));
-  container.appendChild(col(rightEv, "Rechts"));
+  // Filter anwenden (Kategorie/Linie/Richtung), Reihenfolge bleibt zeitlich
+  const base = applyStopFilters(result?.events || [], { ...cfg, sort: undefined });
+  const [leftEv, rightEv] = splitGroups(base, cfg.split);
+
+  const orient = cfg.split.orient === "rows" ? "rows" : "cols";
+  const body = el("div", "split-body split-" + orient);
+  body.appendChild(splitColumn(leftEv, "Links", limit));
+  body.appendChild(splitColumn(rightEv, "Rechts", limit));
+  panel.appendChild(body);
+  return panel;
 }
 
 /* ─── Layouts ──────────────────────────────────────────────── */
@@ -318,7 +337,6 @@ const LAYOUT_LIMITS = {
   split2: 10,
   triple: 9,
   focusmini: 12, // großes Panel; kleine bekommen eigenes Limit
-  steigsplit: 14,
 };
 
 /**
@@ -333,13 +351,6 @@ export function renderView(view, results, container) {
   container.replaceChildren();
 
   const stops = view.stops || [];
-
-  if (layout === "steigsplit") {
-    if (view.orient === "rows") container.classList.add("split-rows");
-    renderSteigSplit(view, results, container);
-    return;
-  }
-
   const baseLimit = LAYOUT_LIMITS[layout] ?? MAX_DEPARTURES;
 
   stops.forEach((stopId, idx) => {
