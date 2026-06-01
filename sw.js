@@ -3,7 +3,7 @@
 //  API-Requests (Cross-Origin zum Worker) werden NIE gecacht.
 // ─────────────────────────────────────────────────────────────
 
-const CACHE = "vrr-shell-v9";
+const CACHE = "vrr-shell-v10";
 const SHELL = [
   "./",
   "./index.html",

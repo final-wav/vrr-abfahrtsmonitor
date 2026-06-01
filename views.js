@@ -303,14 +303,13 @@ function renderSteigSplit(view, results, container) {
   }
 
   const limit = 14;
-  container.appendChild(buildPanel({
-    title: name, subline: [groupLabel(leftEv), updated].filter(Boolean).join(" · "),
-    error: result?.error, events: leftEv, limit, filtered: true,
-  }));
-  container.appendChild(buildPanel({
-    title: name, subline: [groupLabel(rightEv), updated].filter(Boolean).join(" · "),
-    error: result?.error, events: rightEv, limit, filtered: true,
-  }));
+  const col = (events, fallback) => buildPanel({
+    title: groupLabel(events) || fallback,                 // Steig groß als Überschrift
+    subline: [name, updated].filter(Boolean).join(" · "),  // Haltestelle klein darunter
+    error: result?.error, events, limit, filtered: true,
+  });
+  container.appendChild(col(leftEv, "Links"));
+  container.appendChild(col(rightEv, "Rechts"));
 }
 
 /* ─── Layouts ──────────────────────────────────────────────── */
@@ -336,6 +335,7 @@ export function renderView(view, results, container) {
   const stops = view.stops || [];
 
   if (layout === "steigsplit") {
+    if (view.orient === "rows") container.classList.add("split-rows");
     renderSteigSplit(view, results, container);
     return;
   }

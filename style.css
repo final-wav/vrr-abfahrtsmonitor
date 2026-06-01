@@ -139,7 +139,11 @@ html, body {
   grid-template-rows: 65fr 35fr;
 }
 .display-grid.layout-focusmini .stop-panel:nth-child(1) { grid-column: 1 / 3; }
-.display-grid.layout-steigsplit { grid-template-columns: 1fr 1fr; }
+.display-grid.layout-steigsplit { grid-template-columns: 1fr 1fr; gap: 3px; }
+.display-grid.layout-steigsplit.split-rows {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+}
 
 /* ─── Haltestellen-Panel ───────────────────────────────────── */
 .stop-panel {
@@ -432,9 +436,24 @@ input[type="text"], input[type="number"], select {
 .view-card {
   border: 1px solid var(--border-card);
   border-radius: var(--radius-card);
-  padding: 14px;
   margin-bottom: 12px;
+  overflow: hidden;
 }
+.view-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.view-caret { transition: transform 0.15s; color: var(--text-secondary); font-size: 13px; }
+.view-card.open .view-caret { transform: rotate(90deg); }
+.view-summary { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.view-title { font-weight: 700; font-size: 15px; }
+.view-meta { font-size: 12px; color: var(--text-secondary); }
+.view-body { display: none; padding: 0 14px 14px; }
+.view-card.open .view-body { display: block; }
 .view-card .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
 .checks { display: flex; flex-direction: column; gap: 6px; }
 .checks > .stop-pick { border-bottom: 1px solid var(--bg-subtle); padding-bottom: 6px; }

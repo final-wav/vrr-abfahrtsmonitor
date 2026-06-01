@@ -48,6 +48,9 @@ function parseTokens(str) {
   return (str || "").split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+// Welche View-Karten gerade aufgeklappt sind (überlebt Re-Renders in dieser Session)
+const expandedViews = new Set();
+
 function el(tag, cls, text) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
@@ -385,6 +388,7 @@ function renderViewsBody(notify) {
     const view = { id: store.newViewId(), layout: "single", stops: [], label: "Neuer View" };
     store.saveView(view);
     if (store.getViews().length === 1) store.setActiveViewId(view.id);
+    expandedViews.add(view.id); // neuer View direkt aufgeklappt
     refreshViews();
     notify();
   });
@@ -395,7 +399,30 @@ function renderViewsBody(notify) {
 function viewCard(view, notify) {
   const card = el("div", "view-card");
   const stops = store.getStops();
-  const layoutDef = LAYOUTS.find((l) => l.id === view.layout) || LAYOUTS[0];
+  if (expandedViews.has(view.id)) card.classList.add("open");
+
+  // Klappbarer Kopf (zugeklappt = nur Name + Layout)
+  const head = el("div", "view-head");
+  const caret = el("span", "view-caret", "▸");
+  const summary = el("div", "view-summary");
+  const updateSummary = () => {
+    const def = LAYOUTS.find((l) => l.id === view.layout) || LAYOUTS[0];
+    const short = def.label.split(" —")[0];
+    summary.replaceChildren(
+      el("span", "view-title", view.label || "View"),
+      el("span", "view-meta", `${short} · ${view.stops.length} Halt.`)
+    );
+  };
+  head.appendChild(caret);
+  head.appendChild(summary);
+  head.addEventListener("click", () => {
+    const open = card.classList.toggle("open");
+    if (open) expandedViews.add(view.id); else expandedViews.delete(view.id);
+  });
+  card.appendChild(head);
+
+  const body = el("div", "view-body");
+  card.appendChild(body);
 
   // Zeile 1: Label
   const r1 = el("div", "row");
@@ -403,9 +430,9 @@ function viewCard(view, notify) {
   label.type = "text";
   label.value = view.label || "";
   label.placeholder = "Bezeichnung (Tab-Name)";
-  label.addEventListener("change", () => { view.label = label.value.trim() || "View"; store.saveView(view); notify(); });
+  label.addEventListener("change", () => { view.label = label.value.trim() || "View"; store.saveView(view); updateSummary(); notify(); });
   r1.appendChild(label);
-  card.appendChild(r1);
+  body.appendChild(r1);
 
   // Zeile 2: Layout-Auswahl
   const r2 = el("div", "row");
@@ -417,7 +444,7 @@ function viewCard(view, notify) {
     sel.appendChild(opt);
   });
   r2.appendChild(sel);
-  card.appendChild(r2);
+  body.appendChild(r2);
 
   // Hinweis zur Anzahl
   const hint = el("div", "item-sub");
@@ -425,7 +452,7 @@ function viewCard(view, notify) {
     const def = LAYOUTS.find((l) => l.id === view.layout);
     hint.textContent = `${view.stops.length}/${def.count} Haltestellen gewählt`;
   };
-  card.appendChild(hint);
+  body.appendChild(hint);
 
   // Checkbox-Liste der Haltestellen
   const checks = el("div", "checks");
@@ -453,6 +480,7 @@ function viewCard(view, notify) {
         }
         store.saveView(view);
         updateHint();
+        updateSummary();
         renderChecks(); // Filter-Zeile ein-/ausblenden
         notify();
       });
@@ -532,8 +560,26 @@ function viewCard(view, notify) {
           opts.appendChild(sortRow);
         }
 
-        // Steig-Split: Verteilung links/rechts
+        // Steig-Split: Ausrichtung + Verteilung
         if (view.layout === "steigsplit") {
+          // Ausrichtung der beiden Spalten
+          const orientRow = el("label", "opt-row");
+          orientRow.appendChild(el("span", "opt-label", "Ausrichtung"));
+          const orientSel = el("select");
+          [{ v: "cols", t: "nebeneinander" }, { v: "rows", t: "übereinander" }].forEach((o) => {
+            const opt = el("option", null, o.t);
+            opt.value = o.v;
+            if ((view.orient || "cols") === o.v) opt.selected = true;
+            orientSel.appendChild(opt);
+          });
+          orientSel.addEventListener("change", () => {
+            view.orient = orientSel.value === "rows" ? "rows" : "cols";
+            if (view.orient === "cols") delete view.orient;
+            store.saveView(view); notify();
+          });
+          orientRow.appendChild(orientSel);
+          opts.appendChild(orientRow);
+
           const split = view.split?.[s.stopId] || { mode: "auto", left: [], right: [] };
           const modeRow = el("label", "opt-row");
           modeRow.appendChild(el("span", "opt-label", "Steige"));
@@ -588,12 +634,14 @@ function viewCard(view, notify) {
     store.saveView(view);
     renderChecks();
     updateHint();
+    updateSummary();
     notify();
   });
 
-  card.appendChild(checks);
+  body.appendChild(checks);
   renderChecks();
   updateHint();
+  updateSummary();
 
   // Löschen
   const del = el("button", "btn btn-danger", "View löschen");
@@ -603,7 +651,7 @@ function viewCard(view, notify) {
     refreshViews();
     notify();
   });
-  card.appendChild(del);
+  body.appendChild(del);
 
   return card;
 }
